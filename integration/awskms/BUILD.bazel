@@ -1,0 +1,54 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+package(default_visibility = ["//:__subpackages__"])
+
+licenses(["notice"])  # keep
+
+go_library(
+    name = "awskms",
+    srcs = [
+        "aws_kms_aead.go",
+        "aws_kms_client.go",
+    ],
+    importpath = "github.com/tink-crypto/tink-go-awskms/integration/awskms",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_aws_aws_sdk_go//aws",
+        "@com_github_aws_aws_sdk_go//aws/credentials",
+        "@com_github_aws_aws_sdk_go//aws/session",
+        "@com_github_aws_aws_sdk_go//service/kms",
+        "@com_github_aws_aws_sdk_go//service/kms/kmsiface",
+        "@com_github_tink_crypto_tink_go//core/registry",
+        "@com_github_tink_crypto_tink_go//tink",
+    ],
+)
+
+go_test(
+    name = "awskms_test",
+    srcs = [
+        "aws_kms_aead_test.go",
+        "aws_kms_client_test.go",
+    ],
+    data = [
+        "//testdata:credentials",
+        "@google_root_pem//file",  #keep
+    ],
+    tags = [
+        "manual",
+        "no_rbe",
+    ],
+    deps = [
+        ":awskms",
+        "@com_github_tink_crypto_tink_go//aead",
+        "@com_github_tink_crypto_tink_go//core/registry",
+        "@com_github_tink_crypto_tink_go//keyset",
+        "@com_github_tink_crypto_tink_go//subtle/random",
+        "@com_github_tink_crypto_tink_go//tink",
+    ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":awskms",
+    visibility = ["//visibility:public"],
+)
