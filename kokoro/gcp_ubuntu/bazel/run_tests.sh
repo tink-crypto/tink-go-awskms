@@ -15,8 +15,7 @@
 ################################################################################
 
 # The user may specify TINK_BASE_DIR as the folder where to look for
-# tink-go-awskms dependencies:
-#   - tink-go.
+# tink-go, which is the local dependency of tink-go-awskms.
 
 set -euo pipefail
 
@@ -47,6 +46,7 @@ echo "Using go binary from $(which go): $(go version)"
 
 # TODO(b/238389921): Run check_go_generated_files_up_to_date.sh after a
 # refactoring that takes into account extensions to tink-go.
+./kokoro/testutils/copy_credentials.sh testdata
 
 cp WORKSPACE WORKSPACE.bak
 
