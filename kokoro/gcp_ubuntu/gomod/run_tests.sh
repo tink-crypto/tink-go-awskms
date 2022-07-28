@@ -53,9 +53,6 @@ readonly TINK_GO_AWSKMS_MODULE_URL="github.com/tink-crypto/tink-go-awskms"
 readonly TINK_VERSION="$(cat ${TINK_GO_AWSKMS_PROJECT_PATH}/tink_version.bzl \
                         | grep ^TINK \
                         | cut -f 2 -d \")"
-# Create a temporary directory for performing module tests.
-readonly TMP_DIR="$(mktemp -dt tink-go-awskms-module-test.XXXXXX)"
-
 cp go.mod go.mod.bak
 
 # Modify go.mod locally to use the version of tink-go in TINK_BASE_DIR/tink_go.
@@ -65,7 +62,7 @@ go list -m all | grep tink-go
 ./kokoro/testutils/run_go_mod_tests.sh \
   "${TINK_GO_AWSKMS_MODULE_URL}" \
   "${TINK_GO_AWSKMS_PROJECT_PATH}" \
-  "${TMP_DIR}" \
-  "${TINK_VERSION}"
+  "${TINK_VERSION}" \
+  "main"
 
 mv go.mod.bak go.mod
