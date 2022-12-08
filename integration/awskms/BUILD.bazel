@@ -43,7 +43,6 @@ go_test(
         "@com_github_tink_crypto_tink_go//core/registry",
         "@com_github_tink_crypto_tink_go//keyset",
         "@com_github_tink_crypto_tink_go//subtle/random",
-        "@com_github_tink_crypto_tink_go//tink",
     ],
 )
 
