@@ -33,12 +33,15 @@ go_test(
         "//testdata/aws:credentials",
         "@google_root_pem//file",  #keep
     ],
+    embed = [":awskms"],
     tags = [
         "manual",
         "no_rbe",
     ],
     deps = [
-        ":awskms",
+        "//integration/awskms/internal/fakeawskms",
+        "@com_github_aws_aws_sdk_go//aws",
+        "@com_github_aws_aws_sdk_go//service/kms",
         "@com_github_tink_crypto_tink_go//aead",
         "@com_github_tink_crypto_tink_go//core/registry",
         "@com_github_tink_crypto_tink_go//keyset",
