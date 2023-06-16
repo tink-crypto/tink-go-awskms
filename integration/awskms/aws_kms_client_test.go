@@ -25,7 +25,7 @@ import (
 	"testing"
 
 	"github.com/tink-crypto/tink-go-awskms/integration/awskms/internal/fakeawskms"
-	"github.com/tink-crypto/tink-go/core/registry"
+	"github.com/tink-crypto/tink-go/v2/core/registry"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/kms"
 )
