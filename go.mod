@@ -1,4 +1,4 @@
-module github.com/tink-crypto/tink-go-awskms
+module github.com/tink-crypto/tink-go-awskms/v2
 
 go 1.19
 

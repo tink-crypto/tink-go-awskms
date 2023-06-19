@@ -10,7 +10,7 @@ go_library(
         "aws_kms_aead.go",
         "aws_kms_client.go",
     ],
-    importpath = "github.com/tink-crypto/tink-go-awskms/integration/awskms",
+    importpath = "github.com/tink-crypto/tink-go-awskms/v2/integration/awskms",
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_aws_aws_sdk_go//aws",

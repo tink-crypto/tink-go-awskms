@@ -7,7 +7,7 @@ licenses(["notice"])  # keep
 go_library(
     name = "fakeawskms",
     srcs = ["fakeawskms.go"],
-    importpath = "github.com/tink-crypto/tink-go-awskms/integration/awskms/internal/fakeawskms",
+    importpath = "github.com/tink-crypto/tink-go-awskms/v2/integration/awskms/internal/fakeawskms",
     deps = [
         "@com_github_tink_crypto_tink_go//tink",
         "@com_github_tink_crypto_tink_go//keyset",
