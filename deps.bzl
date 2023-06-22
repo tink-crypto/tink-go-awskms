@@ -11,8 +11,8 @@ def tink_go_awskms_dependencies():
     go_repository(
         name = "com_github_aws_aws_sdk_go",
         importpath = "github.com/aws/aws-sdk-go",
-        sum = "h1:Asrp6EMqqRxZvjK0NjzkWcrOk15RnWtupuUrUuZMabk=",
-        version = "v1.44.267",
+        sum = "h1:bLnBVutuyCGYZgQlu3wiXOJXtgI7EIWAaDIqVVudF3w=",
+        version = "v1.44.286",
     )
     go_repository(
         name = "com_github_davecgh_go_spew",
@@ -64,12 +64,14 @@ def tink_go_awskms_dependencies():
         sum = "h1:4G4v2dO3VZwixGIRoQ5Lfboy6nUhCyYzaqnIAPPhYs4=",
         version = "v0.1.0",
     )
+
     go_repository(
-        name = "com_github_tink_crypto_tink_go",
-        importpath = "github.com/tink-crypto/tink-go",
-        sum = "h1:XpILcYStxVV79Y3eFpiJLKXQ35QuSn9kVLyq5QPU8Vg=",
-        version = "v0.0.0-20230523140635-48bf5fd5b1c7",
+        name = "com_github_tink_crypto_tink_go_v2",
+        importpath = "github.com/tink-crypto/tink-go/v2",
+        sum = "h1:LutFJapahsM0i/6hKfOkzSYTVeshmFs+jloZXqe9z9s=",
+        version = "v2.0.0",
     )
+
     go_repository(
         name = "com_github_yuin_goldmark",
         importpath = "github.com/yuin/goldmark",

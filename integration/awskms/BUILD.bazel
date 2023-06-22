@@ -18,8 +18,8 @@ go_library(
         "@com_github_aws_aws_sdk_go//aws/session",
         "@com_github_aws_aws_sdk_go//service/kms",
         "@com_github_aws_aws_sdk_go//service/kms/kmsiface",
-        "@com_github_tink_crypto_tink_go//core/registry",
-        "@com_github_tink_crypto_tink_go//tink",
+        "@com_github_tink_crypto_tink_go_v2//core/registry",
+        "@com_github_tink_crypto_tink_go_v2//tink",
     ],
 )
 
@@ -42,10 +42,10 @@ go_test(
         "//integration/awskms/internal/fakeawskms",
         "@com_github_aws_aws_sdk_go//aws",
         "@com_github_aws_aws_sdk_go//service/kms",
-        "@com_github_tink_crypto_tink_go//aead",
-        "@com_github_tink_crypto_tink_go//core/registry",
-        "@com_github_tink_crypto_tink_go//keyset",
-        "@com_github_tink_crypto_tink_go//subtle/random",
+        "@com_github_tink_crypto_tink_go_v2//aead",
+        "@com_github_tink_crypto_tink_go_v2//core/registry",
+        "@com_github_tink_crypto_tink_go_v2//keyset",
+        "@com_github_tink_crypto_tink_go_v2//subtle/random",
     ],
 )
 
