@@ -42,16 +42,12 @@ http_archive(
     ],
 )
 
-# Placeholder for tink-go http_archive or local_repository.
-
 # Tink Go AWS KMS Deps.
 load("//:deps.bzl", "tink_go_awskms_dependencies")
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
-
-# Placeholder for tink-go dependencies.
 
 # gazelle:repository_macro deps.bzl%tink_go_awskms_dependencies
 tink_go_awskms_dependencies()
