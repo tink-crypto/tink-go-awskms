@@ -11,8 +11,8 @@ def tink_go_awskms_dependencies():
     go_repository(
         name = "com_github_aws_aws_sdk_go",
         importpath = "github.com/aws/aws-sdk-go",
-        sum = "h1:bLnBVutuyCGYZgQlu3wiXOJXtgI7EIWAaDIqVVudF3w=",
-        version = "v1.44.286",
+        sum = "h1:c4fLlh5sLdK2DCRTY1z0hyuJZU4ygxX8m1FswL6/nF4=",
+        version = "v1.45.25",
     )
     go_repository(
         name = "com_github_davecgh_go_spew",
