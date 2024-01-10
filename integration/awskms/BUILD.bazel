@@ -31,7 +31,6 @@ go_test(
     ],
     data = [
         "//testdata/aws:credentials",
-        "@google_root_pem//file",  #keep
     ],
     embed = [":awskms"],
     tags = [

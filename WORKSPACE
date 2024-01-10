@@ -2,13 +2,6 @@ workspace(name = "tink_go_awskms")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
-http_file(
-    name = "google_root_pem",
-    executable = 0,
-    sha256 = "1acf0d4780541758be2c0f998e1e0275232626ed3f8793d8e2fe8e2753750613",
-    urls = ["https://pki.goog/roots.pem"],
-)
-
 http_archive(
     name = "io_bazel_rules_go",
     sha256 = "278b7ff5a826f3dc10f04feaf0b70d48b68748ccd512d7f98bf442077f043fe3",
