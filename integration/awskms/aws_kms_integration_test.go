@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"flag"
+	// Placeholder for internal flag import.
 	// context is used to cancel outstanding requests
 	"github.com/tink-crypto/tink-go/v2/aead"
 	"github.com/tink-crypto/tink-go/v2/tink"
@@ -42,11 +42,7 @@ var (
 	credINIFile = "tink_go_awskms/testdata/aws/credentials.ini"
 )
 
-func init() {
-	certPath := filepath.Join(os.Getenv("TEST_SRCDIR"), "tink_base/roots.pem")
-	flag.Set("cacerts", certPath)
-	os.Setenv("SSL_CERT_FILE", certPath)
-}
+// Placeholder for internal initialization.
 
 func TestNewClientWithCredentialsGetAEADEncryptDecrypt(t *testing.T) {
 	srcDir, ok := os.LookupEnv("TEST_SRCDIR")
