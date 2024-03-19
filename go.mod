@@ -1,6 +1,6 @@
 module github.com/tink-crypto/tink-go-awskms/v2
 
-go 1.20
+go 1.21
 
 require (
 	github.com/aws/aws-sdk-go v1.49.21
