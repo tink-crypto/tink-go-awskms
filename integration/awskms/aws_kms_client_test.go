@@ -23,11 +23,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	kmsv2 "github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/kms"
-	"github.com/tink-crypto/tink-go/v2/core/registry"
 	"github.com/tink-crypto/tink-go-awskms/v2/integration/awskms/internal/fakeawskms"
+	"github.com/tink-crypto/tink-go/v2/core/registry"
+	"github.com/tink-crypto/tink-go/v2/tink"
 )
 
 func TestNewClientWithOptions_URIPrefix(t *testing.T) {
@@ -244,27 +248,7 @@ func TestGetAEADEncryptDecrypt(t *testing.T) {
 
 	plaintext := []byte("plaintext")
 	associatedData := []byte("associatedData")
-	ciphertext, err := a.Encrypt(plaintext, associatedData)
-	if err != nil {
-		t.Fatalf("a.Encrypt(plaintext, associatedData) err = %v, want nil", err)
-	}
-	decrypted, err := a.Decrypt(ciphertext, associatedData)
-	if err != nil {
-		t.Fatalf("a.Decrypt(ciphertext, associatedData) err = %v, want nil", err)
-	}
-	if !bytes.Equal(decrypted, plaintext) {
-		t.Errorf("decrypted = %q, want %q", decrypted, plaintext)
-	}
-
-	_, err = a.Decrypt(ciphertext, []byte("invalidAssociatedData"))
-	if err == nil {
-		t.Error("a.Decrypt(ciphertext, []byte(\"invalidAssociatedData\")) err = nil, want error")
-	}
-
-	_, err = a.Decrypt([]byte("invalidCiphertext"), associatedData)
-	if err == nil {
-		t.Error("a.Decrypt([]byte(\"invalidCiphertext\"), associatedData) err = nil, want error")
-	}
+	encryptAndDecrypt(t, a, plaintext, associatedData)
 }
 
 func TestUsesAdditionalDataAsContextName(t *testing.T) {
@@ -447,5 +431,99 @@ func TestEncryptionContextName_defaultEncryptionContextName(t *testing.T) {
 				t.Errorf("decResponse.KeyId = %q, want %q", *decResponse.KeyId, keyARN)
 			}
 		})
+	}
+}
+
+func TestGetAEADEncryptDecryptWithV2(t *testing.T) {
+	keyURI := "aws-kms://arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
+	keyARN := strings.TrimPrefix(keyURI, awsPrefix)
+	fakekms, err := fakeawskms.NewV2([]string{keyARN})
+	if err != nil {
+		t.Fatalf("fakekms.NewV2() failed: %v", err)
+	}
+
+	client, err := NewClientWithOptions("aws-kms://", WithV2KMSOptions(WithV2KMS(fakekms)))
+	if err != nil {
+		t.Fatalf("NewClientWithOptions() failed: %v", err)
+	}
+
+	a, err := client.GetAEAD(keyURI)
+	if err != nil {
+		t.Fatalf("client.GetAEAD(keyURI) err = %v, want nil", err)
+	}
+
+	plaintext := []byte("plaintext")
+	associatedData := []byte("associatedData")
+	encryptAndDecrypt(t, a, plaintext, associatedData)
+}
+
+func encryptAndDecrypt(t *testing.T, aead tink.AEAD, plaintext []byte, aad []byte) {
+	ciphertext, err := aead.Encrypt(plaintext, aad)
+	if err != nil {
+		t.Fatalf("a.Encrypt(plaintext, associatedData) err = %v, want nil", err)
+	}
+	decrypted, err := aead.Decrypt(ciphertext, aad)
+	if err != nil {
+		t.Fatalf("a.Decrypt(ciphertext, associatedData) err = %v, want nil", err)
+	}
+	if !bytes.Equal(decrypted, plaintext) {
+		t.Errorf("decrypted = %q, want %q", decrypted, plaintext)
+	}
+
+	_, err = aead.Decrypt(ciphertext, []byte("invalidAssociatedData"))
+	if err == nil {
+		t.Error("a.Decrypt(ciphertext, []byte(\"invalidAssociatedData\")) err = nil, want error")
+	}
+
+	_, err = aead.Decrypt([]byte("invalidCiphertext"), aad)
+	if err == nil {
+		t.Error("a.Decrypt([]byte(\"invalidCiphertext\"), associatedData) err = nil, want error")
+	}
+}
+
+func TestNewClientWithOptions_V2Options(t *testing.T) {
+	keyURI := "aws-kms://arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
+	keyARN := strings.TrimPrefix(keyURI, awsPrefix)
+	fakekms, err := fakeawskms.NewV2([]string{keyARN})
+	if err != nil {
+		t.Fatalf("fakekms.NewV2() failed: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		opts        []V2ClientOption
+		expectedErr bool
+	}{
+		{
+			name:        "kms already set",
+			opts:        []V2ClientOption{WithV2KMS(fakekms), WithV2KMS(fakekms)},
+			expectedErr: true,
+		},
+		{
+			name:        "timeout already set",
+			opts:        []V2ClientOption{WithAPITimeout(time.Second * 10), WithAPITimeout(time.Second * 10)},
+			expectedErr: true,
+		},
+		{
+			name:        "loadOpts already set",
+			opts:        []V2ClientOption{WithLoadOptions(config.WithRegion("us-east-2")), WithLoadOptions(config.WithRegion("us-east-2"))},
+			expectedErr: true,
+		},
+		{
+			name:        "kmsOpts already set",
+			opts:        []V2ClientOption{WithKMSOptions(kmsv2.WithAPIOptions()), WithKMSOptions(kmsv2.WithAPIOptions())},
+			expectedErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			_, err := NewClientWithOptions("aws-kms://", WithV2KMSOptions(test.opts...))
+			if test.expectedErr && err == nil {
+				t.Fatalf("NewClientWithOptions() failed: %v", err)
+			}
+		})
+
 	}
 }

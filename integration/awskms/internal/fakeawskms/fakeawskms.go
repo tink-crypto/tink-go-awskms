@@ -19,10 +19,12 @@ package fakeawskms
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"sort"
 
+	kmsv2 "github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go/service/kms"
 	"github.com/aws/aws-sdk-go/service/kms/kmsiface"
 	"github.com/tink-crypto/tink-go/v2/aead"
@@ -118,4 +120,58 @@ func (f *fakeAWSKMS) Decrypt(request *kms.DecryptInput) (*kms.DecryptOutput, err
 		}
 	}
 	return nil, errors.New("unable to decrypt message")
+}
+
+type FakeAWSKMSV2 struct {
+	v1 kmsiface.KMSAPI
+}
+
+// NewV2 returns a new fake AWS KMS V2 API.
+func NewV2(validKeyIDs []string) (*FakeAWSKMSV2, error) {
+	v1, err := New(validKeyIDs)
+	if err != nil {
+		return nil, err
+	}
+	return &FakeAWSKMSV2{
+		v1: v1,
+	}, nil
+}
+func (f FakeAWSKMSV2) Encrypt(_ context.Context, params *kmsv2.EncryptInput, _ ...func(*kmsv2.Options)) (*kmsv2.EncryptOutput, error) {
+	encContext := make(map[string]*string)
+	for k, v := range params.EncryptionContext {
+		encContext[k] = &v
+	}
+
+	res, err := f.v1.Encrypt(&kms.EncryptInput{
+		KeyId:             params.KeyId,
+		Plaintext:         params.Plaintext,
+		EncryptionContext: encContext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &kmsv2.EncryptOutput{
+		CiphertextBlob: res.CiphertextBlob,
+		KeyId:          res.KeyId,
+	}, nil
+}
+
+func (f FakeAWSKMSV2) Decrypt(_ context.Context, params *kmsv2.DecryptInput, _ ...func(*kmsv2.Options)) (*kmsv2.DecryptOutput, error) {
+	encContext := make(map[string]*string)
+	for k, v := range params.EncryptionContext {
+		encContext[k] = &v
+	}
+
+	res, err := f.v1.Decrypt(&kms.DecryptInput{
+		KeyId:             params.KeyId,
+		CiphertextBlob:    params.CiphertextBlob,
+		EncryptionContext: encContext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &kmsv2.DecryptOutput{
+		Plaintext: res.Plaintext,
+		KeyId:     res.KeyId,
+	}, nil
 }

@@ -23,9 +23,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/config"
 	// Placeholder for internal flag import.
 	// context is used to cancel outstanding requests
 	"github.com/tink-crypto/tink-go/v2/aead"
+	"github.com/tink-crypto/tink-go/v2/core/registry"
 	"github.com/tink-crypto/tink-go/v2/tink"
 
 	"github.com/tink-crypto/tink-go-awskms/v2/integration/awskms"
@@ -171,39 +173,98 @@ func TestKeyCommitment(t *testing.T) {
 }
 
 func TestKMSEnvelopeAEADEncryptAndDecrypt(t *testing.T) {
-	for _, credFile := range []string{credCSVFile, credINIFile} {
-		credFilePath, err := getTestFilePath(credFile)
-		if err != nil {
-			t.Skip(err)
-		}
-		client, err := awskms.NewClientWithOptions(keyURI, awskms.WithCredentialPath(credFilePath))
-		if err != nil {
-			t.Fatalf("awskms.NewClientWithOptions() err = %q, want nil", err)
-		}
+	tests := []struct {
+		name           string
+		credsFilePaths string
+		clientFn       func(*testing.T) registry.KMSClient
+	}{
+		{
+			name: "v1 encrypt/decrypt with CSV credentials",
+			clientFn: func(t *testing.T) registry.KMSClient {
+				credFilePath, err := getTestFilePath(credCSVFile)
+				if err != nil {
+					t.Skip(err)
+				}
+				client, err := awskms.NewClientWithOptions(keyURI, awskms.WithCredentialPath(credFilePath))
+				if err != nil {
+					t.Fatalf("awskms.NewClientWithOptions() err = %q, want nil", err)
+				}
+				return client
+			},
+		},
+		{
+			name: "v1 encrypt/decrypt with INI credentials",
+			clientFn: func(t *testing.T) registry.KMSClient {
+				credFilePath, err := getTestFilePath(credINIFile)
+				if err != nil {
+					t.Skip(err)
+				}
+				client, err := awskms.NewClientWithOptions(keyURI, awskms.WithCredentialPath(credFilePath))
+				if err != nil {
+					t.Fatalf("awskms.NewClientWithOptions() err = %q, want nil", err)
+				}
+				return client
+			},
+		},
+		{
+			name: "v1 encrypt/decrypt with INI credentials",
+			clientFn: func(t *testing.T) registry.KMSClient {
+				credFilePath, err := getTestFilePath(credINIFile)
+				if err != nil {
+					t.Skip(err)
+				}
+				client, err := awskms.NewClientWithOptions(keyURI, awskms.WithCredentialPath(credFilePath))
+				if err != nil {
+					t.Fatalf("awskms.NewClientWithOptions() err = %q, want nil", err)
+				}
+				return client
+			},
+		},
+		{
+			name: "v2 encrypt/decrypt with INI credentials",
+			clientFn: func(t *testing.T) registry.KMSClient {
+				credFilePath, err := getTestFilePath(credINIFile)
+				if err != nil {
+					t.Skip(err)
+				}
+				client, err := awskms.NewClientWithOptions(keyURI,
+					awskms.WithV2KMSOptions(awskms.WithLoadOptions(config.WithSharedCredentialsFiles([]string{credFilePath}))))
+				if err != nil {
+					t.Fatalf("awskms.NewClientWithOptions() err = %q, want nil", err)
+				}
+				return client
+			},
+		},
+	}
 
-		kekAEAD, err := client.GetAEAD(keyURI)
-		if err != nil {
-			t.Fatalf("client.GetAEAD(keyURI) err = %q, want nil", err)
-		}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 
-		dekTemplate := aead.AES128CTRHMACSHA256KeyTemplate()
-		a := aead.NewKMSEnvelopeAEAD2(dekTemplate, kekAEAD)
-		if err != nil {
-			t.Fatalf("aead.NewKMSEnvelopeAEAD2(dekTemplate, kekAEAD) err = %q, want nil", err)
-		}
-		plaintext := []byte("plaintext")
-		for _, associatedData := range [][]byte{nil, []byte("associated data")} {
-			ciphertext, err := a.Encrypt(plaintext, associatedData)
+			client := test.clientFn(t)
+			kekAEAD, err := client.GetAEAD(keyURI)
 			if err != nil {
-				t.Fatalf("a.Encrypt(plaintext, associatedData) err = %q, want nil", err)
+				t.Fatalf("client.GetAEAD(keyURI) err = %q, want nil", err)
 			}
-			gotPlaintext, err := a.Decrypt(ciphertext, associatedData)
+
+			dekTemplate := aead.AES128CTRHMACSHA256KeyTemplate()
+			a := aead.NewKMSEnvelopeAEAD2(dekTemplate, kekAEAD)
 			if err != nil {
-				t.Fatalf("a.Decrypt(ciphertext, associatedData) err = %q, want nil", err)
+				t.Fatalf("aead.NewKMSEnvelopeAEAD2(dekTemplate, kekAEAD) err = %q, want nil", err)
 			}
-			if !bytes.Equal(gotPlaintext, plaintext) {
-				t.Errorf("a.Decrypt() = %q, want %q", gotPlaintext, plaintext)
+			plaintext := []byte("plaintext")
+			for _, associatedData := range [][]byte{nil, []byte("associated data")} {
+				ciphertext, err := a.Encrypt(plaintext, associatedData)
+				if err != nil {
+					t.Fatalf("a.Encrypt(plaintext, associatedData) err = %q, want nil", err)
+				}
+				gotPlaintext, err := a.Decrypt(ciphertext, associatedData)
+				if err != nil {
+					t.Fatalf("a.Decrypt(ciphertext, associatedData) err = %q, want nil", err)
+				}
+				if !bytes.Equal(gotPlaintext, plaintext) {
+					t.Errorf("a.Decrypt() = %q, want %q", gotPlaintext, plaintext)
+				}
 			}
-		}
+		})
 	}
 }

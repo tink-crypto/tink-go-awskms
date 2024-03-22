@@ -17,48 +17,54 @@
 package awskms
 
 import (
+	"context"
 	"encoding/hex"
+	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/kms"
-	"github.com/aws/aws-sdk-go/service/kms/kmsiface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 )
 
-// AWSAEAD is an implementation of the AEAD interface which performs
-// cryptographic operations remotely via the AWS KMS service using a specific
+// AWSV2AEAD is an implementation of the AEAD interface which performs
+// cryptographic operations remotely via the AWS V2KMS service using a specific
 // key URI.
-type AWSAEAD struct {
+type AWSV2AEAD struct {
 	keyURI                string
-	kms                   kmsiface.KMSAPI
+	kms                   V2KMS
 	encryptionContextName EncryptionContextName
+	timeout               time.Duration
 }
 
-// newAWSAEAD returns a new AWSAEAD instance.
+// newAWSV2AEAD returns a new AWSV2AEAD instance.
 //
 // keyURI must have the following format:
 //
 //	aws-kms://arn:<partition>:kms:<region>:[<path>]
 //
 // See http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html.
-func newAWSAEAD(keyURI string, kms kmsiface.KMSAPI, name EncryptionContextName) *AWSAEAD {
-	return &AWSAEAD{
+func newAWSV2AEAD(keyURI string, kms V2KMS, name EncryptionContextName, timeout time.Duration) *AWSV2AEAD {
+	return &AWSV2AEAD{
 		keyURI:                keyURI,
 		kms:                   kms,
 		encryptionContextName: name,
+		timeout:               timeout,
 	}
 }
 
 // Encrypt encrypts the plaintext with associatedData.
-func (a *AWSAEAD) Encrypt(plaintext, associatedData []byte) ([]byte, error) {
+func (a *AWSV2AEAD) Encrypt(plaintext, associatedData []byte) ([]byte, error) {
 	req := &kms.EncryptInput{
 		KeyId:     aws.String(a.keyURI),
 		Plaintext: plaintext,
 	}
 	if len(associatedData) > 0 {
 		ad := hex.EncodeToString(associatedData)
-		req.EncryptionContext = map[string]*string{a.encryptionContextName.String(): &ad}
+		req.EncryptionContext = map[string]string{a.encryptionContextName.String(): ad}
 	}
-	resp, err := a.kms.Encrypt(req)
+
+	ctx, cancel := context.WithTimeout(context.Background(), a.timeout)
+	defer cancel()
+	resp, err := a.kms.Encrypt(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -66,16 +72,19 @@ func (a *AWSAEAD) Encrypt(plaintext, associatedData []byte) ([]byte, error) {
 }
 
 // Decrypt decrypts the ciphertext and verifies the associated data.
-func (a *AWSAEAD) Decrypt(ciphertext, associatedData []byte) ([]byte, error) {
+func (a *AWSV2AEAD) Decrypt(ciphertext, associatedData []byte) ([]byte, error) {
 	req := &kms.DecryptInput{
 		KeyId:          aws.String(a.keyURI),
 		CiphertextBlob: ciphertext,
 	}
 	if len(associatedData) > 0 {
 		ad := hex.EncodeToString(associatedData)
-		req.EncryptionContext = map[string]*string{a.encryptionContextName.String(): &ad}
+		req.EncryptionContext = map[string]string{a.encryptionContextName.String(): ad}
 	}
-	resp, err := a.kms.Decrypt(req)
+
+	ctx, cancel := context.WithTimeout(context.Background(), a.timeout)
+	defer cancel()
+	resp, err := a.kms.Decrypt(ctx, req)
 	if err != nil {
 		return nil, err
 	}
