@@ -181,15 +181,6 @@ func WithV2KMS(kms V2KMS) V2ClientOption {
 	})
 }
 
-func UseV2() ClientOption {
-	return option(func(a *awsClient) error {
-		var v v2Client
-		a.builder = v.BuildAead
-
-		return nil
-	})
-}
-
 func WithV2KMSOptions(opts ...V2ClientOption) ClientOption {
 	return option(func(a *awsClient) error {
 		var v v2Client
