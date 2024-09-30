@@ -111,7 +111,7 @@ const (
 )
 
 var encryptionContextNames = map[EncryptionContextName]string{
-	AssociatedData: "associatedData",
+	AssociatedData:       "associatedData",
 	LegacyAdditionalData: "additionalData",
 }
 
@@ -262,7 +262,7 @@ func (c *awsClient) Supported(keyURI string) bool {
 // GetAEAD returns an implementation of the AEAD interface which performs
 // cryptographic operations remotely via AWS KMS using keyURI.
 //
-// keyUri must be supported by this client and must have the following format:
+// keyURI must be supported by this client and must have the following format:
 //
 //	aws-kms://arn:<partition>:kms:<region>:<path>
 //
@@ -272,8 +272,8 @@ func (c *awsClient) GetAEAD(keyURI string) (tink.AEAD, error) {
 		return nil, fmt.Errorf("keyURI must start with prefix %s, but got %s", c.keyURIPrefix, keyURI)
 	}
 
-	uri := strings.TrimPrefix(keyURI, awsPrefix)
-	return newAWSAEAD(uri, c.kms, c.encryptionContextName), nil
+	keyID := strings.TrimPrefix(keyURI, awsPrefix)
+	return newAWSAEAD(keyID, c.kms, c.encryptionContextName), nil
 }
 
 func getKMS(uriPrefix string) (*kms.KMS, error) {

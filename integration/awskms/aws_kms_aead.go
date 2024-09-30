@@ -25,23 +25,23 @@ import (
 
 // AWSAEAD is an implementation of the AEAD interface which performs
 // cryptographic operations remotely via the AWS KMS service using a specific
-// key URI.
+// key ID.
 type AWSAEAD struct {
-	keyURI                string
+	keyID                 string
 	kms                   kmsiface.KMSAPI
 	encryptionContextName EncryptionContextName
 }
 
 // newAWSAEAD returns a new AWSAEAD instance.
 //
-// keyURI must have the following format:
+// keyID must have the following format:
 //
-//	aws-kms://arn:<partition>:kms:<region>:[<path>]
+//	arn:<partition>:kms:<region>:[<path>]
 //
 // See http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html.
-func newAWSAEAD(keyURI string, kms kmsiface.KMSAPI, name EncryptionContextName) *AWSAEAD {
+func newAWSAEAD(keyID string, kms kmsiface.KMSAPI, name EncryptionContextName) *AWSAEAD {
 	return &AWSAEAD{
-		keyURI:                keyURI,
+		keyID:                 keyID,
 		kms:                   kms,
 		encryptionContextName: name,
 	}
@@ -50,7 +50,7 @@ func newAWSAEAD(keyURI string, kms kmsiface.KMSAPI, name EncryptionContextName) 
 // Encrypt encrypts the plaintext with associatedData.
 func (a *AWSAEAD) Encrypt(plaintext, associatedData []byte) ([]byte, error) {
 	req := &kms.EncryptInput{
-		KeyId:     aws.String(a.keyURI),
+		KeyId:     aws.String(a.keyID),
 		Plaintext: plaintext,
 	}
 	if len(associatedData) > 0 {
@@ -67,7 +67,7 @@ func (a *AWSAEAD) Encrypt(plaintext, associatedData []byte) ([]byte, error) {
 // Decrypt decrypts the ciphertext and verifies the associated data.
 func (a *AWSAEAD) Decrypt(ciphertext, associatedData []byte) ([]byte, error) {
 	req := &kms.DecryptInput{
-		KeyId:          aws.String(a.keyURI),
+		KeyId:          aws.String(a.keyID),
 		CiphertextBlob: ciphertext,
 	}
 	if len(associatedData) > 0 {
