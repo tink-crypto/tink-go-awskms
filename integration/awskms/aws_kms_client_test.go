@@ -28,18 +28,22 @@ import (
 	"github.com/tink-crypto/tink-go-awskms/v2/integration/awskms/internal/fakeawskms"
 )
 
-func TestNewClientWithOptions_URIPrefix(t *testing.T) {
+func testFilePath(t *testing.T, filename string) string {
+	t.Helper()
 	srcDir, ok := os.LookupEnv("TEST_SRCDIR")
-	if !ok {
-		t.Skip("TEST_SRCDIR not set")
+	if ok {
+		workspaceDir, ok := os.LookupEnv("TEST_WORKSPACE")
+		if !ok {
+			t.Fatal("TEST_WORKSPACE not found")
+		}
+		return filepath.Join(srcDir, workspaceDir, filename)
 	}
-	workspaceDir, ok := os.LookupEnv("TEST_WORKSPACE")
-	if !ok {
-		t.Skip("TEST_WORKSPACE not set")
-	}
+	return filepath.Join("../..", filename)
+}
 
+func TestNewClientWithOptions_URIPrefix(t *testing.T) {
 	// Necessary for testing deprecated factory functions.
-	credFile := filepath.Join(srcDir, workspaceDir, "testdata/aws/credentials.csv")
+	credFile := testFilePath(t, "testdata/aws/credentials.csv")
 	keyARN := "arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
 	fakekms, err := fakeawskms.New([]string{keyARN})
 	if err != nil {
