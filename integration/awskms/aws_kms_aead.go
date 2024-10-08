@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package awskms provides integration with the AWS Key Management Service.
+// Package awskms provides integration with the [AWS KMS].
+//
+// Version: 2.1.0
+//
+// [AWS KMS]: https://docs.aws.amazon.com/kms/latest/developerguide/kms-overview.html
 package awskms
 
 import (
