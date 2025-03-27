@@ -41,14 +41,27 @@ if [[ -n "${CONTAINER_IMAGE:-}" ]]; then
   RUN_COMMAND_ARGS+=( -c "${CONTAINER_IMAGE}" )
 fi
 
-readonly MODULE_URL="github.com/tink-crypto/tink-go-awskms"
-readonly MODULE_VERSION="$(cat integration/awskms/aws_kms_aead.go \
-                          | grep '// Version:' \
-                          | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+')"
-
 ./kokoro/testutils/run_command.sh "${RUN_COMMAND_ARGS[@]}" \
   ./kokoro/testutils/check_go_generated_files_up_to_date.sh .
 ./kokoro/testutils/copy_credentials.sh "testdata" "aws"
+
+cat <<EOF > _run_test.sh
+#!/bin/bash
+set -euo pipefail
+
+set -x
+go build -v ./...
+go test -v ./...
+EOF
+
+chmod +x _run_test.sh
+
+# Run cleanup on EXIT.
+trap cleanup EXIT
+
+cleanup() {
+  rm -rf _run_test.sh
+}
+
 ./kokoro/testutils/run_command.sh "${RUN_COMMAND_ARGS[@]}" \
-  ./kokoro/testutils/run_go_mod_tests.sh "${MODULE_URL}" . \
-    "${MODULE_VERSION}" "main"
+  ./_run_test.sh
