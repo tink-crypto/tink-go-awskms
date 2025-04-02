@@ -14,8 +14,6 @@
 
 // Package awskms provides integration with the [AWS KMS].
 //
-// Version: 2.1.0
-//
 // [AWS KMS]: https://docs.aws.amazon.com/kms/latest/developerguide/kms-overview.html
 package awskms
 
