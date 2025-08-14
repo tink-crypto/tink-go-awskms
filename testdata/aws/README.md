@@ -13,4 +13,4 @@ script][copy-credentials-script].
 
 [aws-access-keys]: https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html
 [properties-file]: https://docs.aws.amazon.com/AmazonS3/latest/dev/AuthUsingAcctOrUserCredentials.html
-[copy-credentials-script]: https://github.com/google/tink/blob/master/kokoro/copy_credentials.sh
+[copy-credentials-script]: https://github.com/tink-crypto/tink-go-awskms/blob/main/kokoro/testutils/copy_credentials.sh
