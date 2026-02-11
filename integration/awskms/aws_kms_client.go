@@ -15,6 +15,7 @@
 package awskms
 
 import (
+	"context"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -23,14 +24,19 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/kms"
-	"github.com/aws/aws-sdk-go/service/kms/kmsiface"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/tink-crypto/tink-go/v2/core/registry"
 	"github.com/tink-crypto/tink-go/v2/tink"
 )
+
+// KMSAPI is the subset of the AWS KMS client API used by this package.
+// It is satisfied by *[kms.Client] from the AWS SDK for Go v2.
+type KMSAPI interface {
+	Encrypt(ctx context.Context, params *kms.EncryptInput, optFns ...func(*kms.Options)) (*kms.EncryptOutput, error)
+	Decrypt(ctx context.Context, params *kms.DecryptInput, optFns ...func(*kms.Options)) (*kms.DecryptOutput, error)
+}
 
 const (
 	awsPrefix = "aws-kms://"
@@ -46,7 +52,7 @@ var (
 // instantiate Tink primitives.
 type awsClient struct {
 	keyURIPrefix          string
-	kms                   kmsiface.KMSAPI
+	kms                   KMSAPI
 	encryptionContextName EncryptionContextName
 }
 
@@ -88,7 +94,7 @@ func WithCredentialPath(credentialPath string) ClientOption {
 // It's the callers responsibility to ensure that the configured region of kms
 // aligns with the region in key URIs passed to this client. Otherwise, API
 // requests will fail.
-func WithKMS(kms kmsiface.KMSAPI) ClientOption {
+func WithKMS(kms KMSAPI) ClientOption {
 	return option(func(a *awsClient) error {
 		if a.kms != nil {
 			return errors.New("WithKMS option cannot be used, KMS client already set")
@@ -235,7 +241,7 @@ func NewClientWithCredentials(uriPrefix string, credentialPath string) (registry
 // instance of the AWS SDK KMS client.
 //
 // The caller is responsible for ensuring that the region specified in the KMS
-// client is consitent with the region specified within uriPrefix.
+// client is consistent with the region specified within uriPrefix.
 //
 // uriPrefix must have the following format:
 //
@@ -249,7 +255,7 @@ func NewClientWithCredentials(uriPrefix string, credentialPath string) (registry
 // Deprecated: Instead use [NewClientWithOptions] and [WithKMS].
 //
 //	awskms.NewClientWithOptions(uriPrefix, awskms.WithKMS(kms))
-func NewClientWithKMS(uriPrefix string, kms kmsiface.KMSAPI) (registry.KMSClient, error) {
+func NewClientWithKMS(uriPrefix string, kms KMSAPI) (registry.KMSClient, error) {
 	return NewClientWithOptions(uriPrefix, WithKMS(kms), WithEncryptionContextName(LegacyAdditionalData))
 }
 
@@ -276,52 +282,55 @@ func (c *awsClient) GetAEAD(keyURI string) (tink.AEAD, error) {
 	return newAWSAEAD(keyID, c.kms, c.encryptionContextName), nil
 }
 
-func getKMS(uriPrefix string) (*kms.KMS, error) {
+func getKMS(uriPrefix string) (*kms.Client, error) {
 	r, err := getRegion(uriPrefix)
 	if err != nil {
 		return nil, err
 	}
 
-	session, err := session.NewSession(&aws.Config{
-		Region: aws.String(r),
-	})
+	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(r))
 	if err != nil {
 		return nil, err
 	}
 
-	return kms.New(session), nil
+	return kms.NewFromConfig(cfg), nil
 }
 
-func getKMSFromCredentialPath(uriPrefix string, credentialPath string) (*kms.KMS, error) {
+func getKMSFromCredentialPath(uriPrefix string, credentialPath string) (*kms.Client, error) {
 	r, err := getRegion(uriPrefix)
 	if err != nil {
 		return nil, err
 	}
 
-	var creds *credentials.Credentials
 	if len(credentialPath) == 0 {
 		return nil, errCred
 	}
-	c, err := extractCredsCSV(credentialPath)
+
+	accessKey, secretKey, err := extractCredsCSV(credentialPath)
 	switch err {
 	case nil:
-		creds = credentials.NewStaticCredentialsFromCreds(*c)
+		cfg, err := config.LoadDefaultConfig(context.Background(),
+			config.WithRegion(r),
+			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return kms.NewFromConfig(cfg), nil
 	case errBadFile, errCredCSV:
 		return nil, err
 	default:
 		// Fallback to load the credential path as .ini shared credentials.
-		creds = credentials.NewSharedCredentials(credentialPath, "default")
+		cfg, err := config.LoadDefaultConfig(context.Background(),
+			config.WithRegion(r),
+			config.WithSharedCredentialsFiles([]string{credentialPath}),
+			config.WithSharedConfigProfile("default"),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return kms.NewFromConfig(cfg), nil
 	}
-
-	session, err := session.NewSession(&aws.Config{
-		Credentials: creds,
-		Region:      aws.String(r),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return kms.New(session), nil
 }
 
 // extractCredsCSV extracts credentials from a CSV file.
@@ -334,36 +343,33 @@ func getKMSFromCredentialPath(uriPrefix string, credentialPath string) (*kms.KMS
 //  1. The first line consists of the headers:
 //     "User name,Password,Access key ID,Secret access key,Console login link"
 //  2. The second line contains 5 comma separated values.
-func extractCredsCSV(file string) (*credentials.Value, error) {
+func extractCredsCSV(file string) (string, string, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		return nil, errBadFile
+		return "", "", errBadFile
 	}
 	defer f.Close()
 
 	lines, err := csv.NewReader(f).ReadAll()
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 
 	// It is possible that the file is an AWS .ini credential file, and it can be
 	// parsed as 1-column CSV file as well. A real AWS credentials.csv is never 1 column.
 	if len(lines) > 0 && len(lines[0]) == 1 {
-		return nil, errors.New("not a valid CSV credential file")
+		return "", "", errors.New("not a valid CSV credential file")
 	}
 
 	if len(lines) < 2 {
-		return nil, errCredCSV
+		return "", "", errCredCSV
 	}
 
 	if len(lines[1]) < 4 {
-		return nil, errCredCSV
+		return "", "", errCredCSV
 	}
 
-	return &credentials.Value{
-		AccessKeyID:     lines[1][2],
-		SecretAccessKey: lines[1][3],
-	}, nil
+	return lines[1][2], lines[1][3], nil
 }
 
 // getRegion extracts the region from keyURI.

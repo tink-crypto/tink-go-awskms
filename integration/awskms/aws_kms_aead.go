@@ -18,11 +18,11 @@
 package awskms
 
 import (
+	"context"
 	"encoding/hex"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/kms"
-	"github.com/aws/aws-sdk-go/service/kms/kmsiface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 )
 
 // AWSAEAD is an implementation of the AEAD interface which performs
@@ -30,7 +30,7 @@ import (
 // key ID.
 type AWSAEAD struct {
 	keyID                 string
-	kms                   kmsiface.KMSAPI
+	kms                   KMSAPI
 	encryptionContextName EncryptionContextName
 }
 
@@ -41,7 +41,7 @@ type AWSAEAD struct {
 //	arn:<partition>:kms:<region>:[<path>]
 //
 // See http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html.
-func newAWSAEAD(keyID string, kms kmsiface.KMSAPI, name EncryptionContextName) *AWSAEAD {
+func newAWSAEAD(keyID string, kms KMSAPI, name EncryptionContextName) *AWSAEAD {
 	return &AWSAEAD{
 		keyID:                 keyID,
 		kms:                   kms,
@@ -57,9 +57,9 @@ func (a *AWSAEAD) Encrypt(plaintext, associatedData []byte) ([]byte, error) {
 	}
 	if len(associatedData) > 0 {
 		ad := hex.EncodeToString(associatedData)
-		req.EncryptionContext = map[string]*string{a.encryptionContextName.String(): &ad}
+		req.EncryptionContext = map[string]string{a.encryptionContextName.String(): ad}
 	}
-	resp, err := a.kms.Encrypt(req)
+	resp, err := a.kms.Encrypt(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -74,9 +74,9 @@ func (a *AWSAEAD) Decrypt(ciphertext, associatedData []byte) ([]byte, error) {
 	}
 	if len(associatedData) > 0 {
 		ad := hex.EncodeToString(associatedData)
-		req.EncryptionContext = map[string]*string{a.encryptionContextName.String(): &ad}
+		req.EncryptionContext = map[string]string{a.encryptionContextName.String(): ad}
 	}
-	resp, err := a.kms.Decrypt(req)
+	resp, err := a.kms.Decrypt(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
