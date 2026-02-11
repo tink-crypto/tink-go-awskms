@@ -16,14 +16,15 @@ package awskms
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/kms"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/tink-crypto/tink-go/v2/core/registry"
 	"github.com/tink-crypto/tink-go-awskms/v2/integration/awskms/internal/fakeawskms"
 )
@@ -295,13 +296,13 @@ func TestUsesAdditionalDataAsContextName(t *testing.T) {
 	}
 
 	hexAD := hex.EncodeToString(associatedData)
-	context := map[string]*string{"additionalData": &hexAD}
+	encCtx := map[string]string{"additionalData": hexAD}
 	decRequest := &kms.DecryptInput{
 		KeyId:             aws.String(keyARN),
 		CiphertextBlob:    ciphertext,
-		EncryptionContext: context,
+		EncryptionContext: encCtx,
 	}
-	decResponse, err := fakekms.Decrypt(decRequest)
+	decResponse, err := fakekms.Decrypt(context.Background(), decRequest)
 	if err != nil {
 		t.Fatalf("fakeKMS.Decrypt(decRequest) err = %s, want nil", err)
 	}
@@ -355,13 +356,13 @@ func TestEncryptionContextName(t *testing.T) {
 			}
 
 			hexAD := hex.EncodeToString(associatedData)
-			context := map[string]*string{test.wantContextName: &hexAD}
+			encCtx := map[string]string{test.wantContextName: hexAD}
 			decRequest := &kms.DecryptInput{
 				KeyId:             aws.String(keyARN),
 				CiphertextBlob:    ciphertext,
-				EncryptionContext: context,
+				EncryptionContext: encCtx,
 			}
-			decResponse, err := fakekms.Decrypt(decRequest)
+			decResponse, err := fakekms.Decrypt(context.Background(), decRequest)
 			if err != nil {
 				t.Fatalf("fakeKMS.Decrypt(decRequest) err = %s, want nil", err)
 			}
@@ -432,13 +433,13 @@ func TestEncryptionContextName_defaultEncryptionContextName(t *testing.T) {
 			}
 
 			hexAD := hex.EncodeToString(associatedData)
-			context := map[string]*string{test.wantContextName: &hexAD}
+			encCtx := map[string]string{test.wantContextName: hexAD}
 			decRequest := &kms.DecryptInput{
 				KeyId:             aws.String(keyARN),
 				CiphertextBlob:    ciphertext,
-				EncryptionContext: context,
+				EncryptionContext: encCtx,
 			}
-			decResponse, err := fakekms.Decrypt(decRequest)
+			decResponse, err := fakekms.Decrypt(context.Background(), decRequest)
 			if err != nil {
 				t.Fatalf("fakeKMS.Decrypt(decRequest) err = %s, want nil", err)
 			}
