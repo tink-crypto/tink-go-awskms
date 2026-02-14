@@ -29,28 +29,7 @@ import (
 	"github.com/tink-crypto/tink-go-awskms/v2/integration/awskms/internal/fakeawskms"
 )
 
-func testFilePath(t *testing.T, filename string) string {
-	t.Helper()
-	srcDir, ok := os.LookupEnv("TEST_SRCDIR")
-	if ok {
-		workspaceDir, ok := os.LookupEnv("TEST_WORKSPACE")
-		if !ok {
-			t.Fatal("TEST_WORKSPACE not found")
-		}
-		return filepath.Join(srcDir, workspaceDir, filename)
-	}
-	return filepath.Join("../..", filename)
-}
-
 func TestNewClientWithOptions_URIPrefix(t *testing.T) {
-	// Necessary for testing deprecated factory functions.
-	credFile := testFilePath(t, "testdata/aws/credentials.csv")
-	keyARN := "arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
-	fakekms, err := fakeawskms.New([]string{keyARN})
-	if err != nil {
-		t.Fatalf("fakeawskms.New() failed: %v", err)
-	}
-
 	tests := []struct {
 		name      string
 		uriPrefix string
@@ -88,30 +67,6 @@ func TestNewClientWithOptions_URIPrefix(t *testing.T) {
 				t.Errorf("NewClientWithOptions(%q) err = nil, want error", test.uriPrefix)
 			}
 
-			// Test deprecated factory functions.
-			_, err = NewClient(test.uriPrefix)
-			if test.valid && err != nil {
-				t.Errorf("NewClient(%q) err = %v, want nil", test.uriPrefix, err)
-			}
-			if !test.valid && err == nil {
-				t.Errorf("NewClient(%q) err = nil, want error", test.uriPrefix)
-			}
-
-			_, err = NewClientWithCredentials(test.uriPrefix, credFile)
-			if test.valid && err != nil {
-				t.Errorf("NewClientWithCredentialPath(%q, _) err = %v, want nil", test.uriPrefix, err)
-			}
-			if !test.valid && err == nil {
-				t.Errorf("NewClientWithCredentialPath(%q, _) err = nil, want error", test.uriPrefix)
-			}
-
-			_, err = NewClientWithKMS(test.uriPrefix, fakekms)
-			if test.valid && err != nil {
-				t.Errorf("NewClientWithKMS(%q, _) err = %v, want nil", test.uriPrefix, err)
-			}
-			if !test.valid && err == nil {
-				t.Errorf("NewClientWithKMS(%q, _) err = nil, want error", test.uriPrefix)
-			}
 		})
 	}
 }
@@ -158,15 +113,6 @@ func TestNewClientWithOptions_WithCredentialPath(t *testing.T) {
 			}
 			if !test.valid && err == nil {
 				t.Errorf("NewClientWithOptions(uriPrefix, WithCredentialPath(%q)) err = nil, want error", test.credFile)
-			}
-
-			// Test deprecated factory function.
-			_, err = NewClientWithCredentials(uriPrefix, test.credFile)
-			if test.valid && err != nil {
-				t.Errorf("NewClientWithCredentials(uriPrefix, %q) err = %v, want nil", test.credFile, err)
-			}
-			if !test.valid && err == nil {
-				t.Errorf("NewClientWithCredentials(uriPrefix, %q) err = nil, want error", test.credFile)
 			}
 
 		})
@@ -270,50 +216,6 @@ func TestGetAEADEncryptDecrypt(t *testing.T) {
 	}
 }
 
-func TestUsesAdditionalDataAsContextName(t *testing.T) {
-	keyARN := "arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
-	keyURI := "aws-kms://arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
-	fakekms, err := fakeawskms.New([]string{keyARN})
-	if err != nil {
-		t.Fatalf("fakeawskms.New() failed: %v", err)
-	}
-
-	client, err := NewClientWithKMS("aws-kms://", fakekms)
-	if err != nil {
-		t.Fatalf("NewClientWithKMS() failed: %v", err)
-	}
-
-	a, err := client.GetAEAD(keyURI)
-	if err != nil {
-		t.Fatalf("client.GetAEAD(keyURI) failed: %s", err)
-	}
-
-	plaintext := []byte("plaintext")
-	associatedData := []byte("associatedData")
-	ciphertext, err := a.Encrypt(plaintext, associatedData)
-	if err != nil {
-		t.Fatalf("a.Encrypt(plaintext, associatedData) err = %v, want nil", err)
-	}
-
-	hexAD := hex.EncodeToString(associatedData)
-	encCtx := map[string]string{"additionalData": hexAD}
-	decRequest := &kms.DecryptInput{
-		KeyId:             aws.String(keyARN),
-		CiphertextBlob:    ciphertext,
-		EncryptionContext: encCtx,
-	}
-	decResponse, err := fakekms.Decrypt(context.Background(), decRequest)
-	if err != nil {
-		t.Fatalf("fakeKMS.Decrypt(decRequest) err = %s, want nil", err)
-	}
-	if !bytes.Equal(decResponse.Plaintext, plaintext) {
-		t.Errorf("decResponse.Plaintext = %q, want %q", decResponse.Plaintext, plaintext)
-	}
-	if strings.Compare(*decResponse.KeyId, keyARN) != 0 {
-		t.Errorf("decResponse.KeyId = %q, want %q", *decResponse.KeyId, keyARN)
-	}
-}
-
 func TestEncryptionContextName(t *testing.T) {
 	keyARN := "arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
 	keyURI := "aws-kms://arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
@@ -401,19 +303,6 @@ func TestEncryptionContextName_defaultEncryptionContextName(t *testing.T) {
 
 			},
 			wantContextName: "associatedData",
-		},
-		// Test deprecated factory function.
-		{
-			name: "NewClientWithKMS",
-			client: func(t *testing.T) registry.KMSClient {
-				t.Helper()
-				c, err := NewClientWithKMS(keyURI, fakekms)
-				if err != nil {
-					t.Fatalf("NewClientWithKMS() failed: %v", err)
-				}
-				return c
-			},
-			wantContextName: "additionalData",
 		},
 	}
 
