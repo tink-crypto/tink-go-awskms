@@ -158,11 +158,18 @@ func WithEncryptionContextName(name EncryptionContextName) ClientOption {
 // NewClientWithOptions returns a [registry.KMSClient] which wraps an AWS KMS
 // client and will handle keys whose URIs start with uriPrefix.
 //
-// By default, the client will use default credentials.
+// By default, the client will use default credentials. Use [WithKMS] to provide
+// a client if you'd like to use a specific context or other AWS options.
 //
 // AEAD primitives produced by this client will use [AssociatedData] when
 // serializing associated data.
 func NewClientWithOptions(uriPrefix string, opts ...ClientOption) (registry.KMSClient, error) {
+	return newClientWithOptions(uriPrefix, opts...)
+}
+
+// Creates the client, returning the internal struct. For use with
+// [NewClientWithOptions] and [NewAEADWithContext].
+func newClientWithOptions(uriPrefix string, opts ...ClientOption) (*awsClient, error) {
 	if !strings.HasPrefix(strings.ToLower(uriPrefix), awsPrefix) {
 		return nil, fmt.Errorf("uriPrefix must start with %q, but got %q", awsPrefix, uriPrefix)
 	}
@@ -208,12 +215,37 @@ func (c *awsClient) Supported(keyURI string) bool {
 //
 // See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
 func (c *awsClient) GetAEAD(keyURI string) (tink.AEAD, error) {
+	return c.getAEAD(keyURI)
+}
+
+func (c *awsClient) getAEAD(keyURI string) (*AWSAEAD, error) {
 	if !c.Supported(keyURI) {
 		return nil, fmt.Errorf("keyURI must start with prefix %s, but got %s", c.keyURIPrefix, keyURI)
 	}
 
 	keyID := strings.TrimPrefix(keyURI, awsPrefix)
 	return newAWSAEAD(keyID, c.kms, c.encryptionContextName), nil
+}
+
+// NewAEADWithContext creates a client for keyURI using the provided options and
+// returns a [tink.AEADWithContext] for that key. This is a convenience function
+// that combines [NewClientWithOptions] and [awsClient.GetAEAD].
+//
+// keyURI must have the format:
+//
+//	aws-kms://arn:<partition>:kms:<region>:<path>
+func NewAEADWithContext(keyURI string, opts ...ClientOption) (tink.AEADWithContext, error) {
+	client, err := newClientWithOptions(keyURI, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	aead, err := client.getAEAD(keyURI)
+	if err != nil {
+		return nil, err
+	}
+
+	return aead, nil
 }
 
 func getKMS(uriPrefix string) (*kms.Client, error) {

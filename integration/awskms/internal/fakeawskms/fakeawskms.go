@@ -73,7 +73,10 @@ func New(validKeyIDs []string) (*FakeAWSKMS, error) {
 	}, nil
 }
 
-func (f *FakeAWSKMS) Encrypt(_ context.Context, request *kms.EncryptInput, _ ...func(*kms.Options)) (*kms.EncryptOutput, error) {
+func (f *FakeAWSKMS) Encrypt(ctx context.Context, request *kms.EncryptInput, _ ...func(*kms.Options)) (*kms.EncryptOutput, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	a, ok := f.aeads[*request.KeyId]
 	if !ok {
 		return nil, fmt.Errorf("Unknown keyID: %q not in %q", *request.KeyId, f.keyIDs)
@@ -89,7 +92,10 @@ func (f *FakeAWSKMS) Encrypt(_ context.Context, request *kms.EncryptInput, _ ...
 	}, nil
 }
 
-func (f *FakeAWSKMS) Decrypt(_ context.Context, request *kms.DecryptInput, _ ...func(*kms.Options)) (*kms.DecryptOutput, error) {
+func (f *FakeAWSKMS) Decrypt(ctx context.Context, request *kms.DecryptInput, _ ...func(*kms.Options)) (*kms.DecryptOutput, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	serializedContext := serializeContext(request.EncryptionContext)
 	if request.KeyId != nil {
 		a, ok := f.aeads[*request.KeyId]

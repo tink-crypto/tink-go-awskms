@@ -216,6 +216,121 @@ func TestGetAEADEncryptDecrypt(t *testing.T) {
 	}
 }
 
+func TestGetAEADEncryptDecryptWithContext(t *testing.T) {
+	keyARN := "arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
+	keyURI := "aws-kms://arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
+	fakekms, err := fakeawskms.New([]string{keyARN})
+	if err != nil {
+		t.Fatalf("fakekms.New() failed: %v", err)
+	}
+
+	client, err := NewClientWithOptions("aws-kms://", WithKMS(fakekms))
+	if err != nil {
+		t.Fatalf("NewClientWithOptions() failed: %v", err)
+	}
+
+	a, err := client.GetAEAD(keyURI)
+	if err != nil {
+		t.Fatalf("client.GetAEAD(keyURI) err = %v, want nil", err)
+	}
+
+	aead := a.(*AWSAEAD)
+	ctx := context.Background()
+	plaintext := []byte("plaintext")
+	associatedData := []byte("associatedData")
+
+	ciphertext, err := aead.EncryptWithContext(ctx, plaintext, associatedData)
+	if err != nil {
+		t.Fatalf("aead.EncryptWithContext() err = %v, want nil", err)
+	}
+	decrypted, err := aead.DecryptWithContext(ctx, ciphertext, associatedData)
+	if err != nil {
+		t.Fatalf("aead.DecryptWithContext() err = %v, want nil", err)
+	}
+	if !bytes.Equal(decrypted, plaintext) {
+		t.Errorf("decrypted = %q, want %q", decrypted, plaintext)
+	}
+
+	// Cross-compatibility: encrypt with context, decrypt without.
+	decrypted2, err := aead.Decrypt(ciphertext, associatedData)
+	if err != nil {
+		t.Fatalf("aead.Decrypt() err = %v, want nil", err)
+	}
+	if !bytes.Equal(decrypted2, plaintext) {
+		t.Errorf("decrypted = %q, want %q", decrypted2, plaintext)
+	}
+
+	// Cross-compatibility: encrypt without context, decrypt with.
+	ciphertext2, err := aead.Encrypt(plaintext, associatedData)
+	if err != nil {
+		t.Fatalf("aead.Encrypt() err = %v, want nil", err)
+	}
+	decrypted3, err := aead.DecryptWithContext(ctx, ciphertext2, associatedData)
+	if err != nil {
+		t.Fatalf("aead.DecryptWithContext() err = %v, want nil", err)
+	}
+	if !bytes.Equal(decrypted3, plaintext) {
+		t.Errorf("decrypted = %q, want %q", decrypted3, plaintext)
+	}
+
+	// Invalid associated data.
+	_, err = aead.DecryptWithContext(ctx, ciphertext, []byte("invalidAssociatedData"))
+	if err == nil {
+		t.Error("aead.DecryptWithContext() with invalid associated data err = nil, want error")
+	}
+
+	// Cancelled context is propagated to encrypt.
+	cancelledCtx, cancel := context.WithCancel(ctx)
+	cancel()
+	_, err = aead.EncryptWithContext(cancelledCtx, plaintext, associatedData)
+	if err == nil {
+		t.Error("aead.EncryptWithContext() with cancelled context err = nil, want error")
+	}
+
+	// Cancelled context is propagated to decrypt.
+	_, err = aead.DecryptWithContext(cancelledCtx, ciphertext, associatedData)
+	if err == nil {
+		t.Error("aead.DecryptWithContext() with cancelled context err = nil, want error")
+	}
+}
+
+func TestNewAEADWithContext(t *testing.T) {
+	keyARN := "arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
+	keyURI := "aws-kms://arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
+	fakekms, err := fakeawskms.New([]string{keyARN})
+	if err != nil {
+		t.Fatalf("fakekms.New() failed: %v", err)
+	}
+
+	aead, err := NewAEADWithContext(keyURI, WithKMS(fakekms))
+	if err != nil {
+		t.Fatalf("NewAEADWithContext() err = %v, want nil", err)
+	}
+
+	ctx := context.Background()
+	plaintext := []byte("plaintext")
+	associatedData := []byte("associatedData")
+
+	ciphertext, err := aead.EncryptWithContext(ctx, plaintext, associatedData)
+	if err != nil {
+		t.Fatalf("aead.EncryptWithContext() err = %v, want nil", err)
+	}
+	decrypted, err := aead.DecryptWithContext(ctx, ciphertext, associatedData)
+	if err != nil {
+		t.Fatalf("aead.DecryptWithContext() err = %v, want nil", err)
+	}
+	if !bytes.Equal(decrypted, plaintext) {
+		t.Errorf("decrypted = %q, want %q", decrypted, plaintext)
+	}
+}
+
+func TestNewAEADWithContext_InvalidURIPrefix(t *testing.T) {
+	_, err := NewAEADWithContext("bad-prefix://foo")
+	if err == nil {
+		t.Error("NewAEADWithContext() with invalid URI err = nil, want error")
+	}
+}
+
 func TestEncryptionContextName(t *testing.T) {
 	keyARN := "arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
 	keyURI := "aws-kms://arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
