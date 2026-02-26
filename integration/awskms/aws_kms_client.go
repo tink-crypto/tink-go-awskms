@@ -218,7 +218,7 @@ func (c *awsClient) GetAEAD(keyURI string) (tink.AEAD, error) {
 	return c.getAEAD(keyURI)
 }
 
-func (c *awsClient) getAEAD(keyURI string) (*AWSAEAD, error) {
+func (c *awsClient) getAEAD(keyURI string) (*awsAEAD, error) {
 	if !c.Supported(keyURI) {
 		return nil, fmt.Errorf("keyURI must start with prefix %s, but got %s", c.keyURIPrefix, keyURI)
 	}

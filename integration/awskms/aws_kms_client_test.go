@@ -25,8 +25,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
-	"github.com/tink-crypto/tink-go/v2/core/registry"
 	"github.com/tink-crypto/tink-go-awskms/v3/integration/awskms/internal/fakeawskms"
+	"github.com/tink-crypto/tink-go/v2/core/registry"
 )
 
 func TestNewClientWithOptions_URIPrefix(t *testing.T) {
@@ -234,7 +234,7 @@ func TestGetAEADEncryptDecryptWithContext(t *testing.T) {
 		t.Fatalf("client.GetAEAD(keyURI) err = %v, want nil", err)
 	}
 
-	aead := a.(*AWSAEAD)
+	aead := a.(*awsAEAD)
 	ctx := context.Background()
 	plaintext := []byte("plaintext")
 	associatedData := []byte("associatedData")

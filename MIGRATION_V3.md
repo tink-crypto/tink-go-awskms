@@ -14,6 +14,7 @@ changes — context support is opt-in.
 - [Context support](#context-support)
   - [EncryptWithContext and DecryptWithContext](#encryptwithcontext-and-decryptwithcontext)
   - [NewAEADWithContext](#newaeadwithcontext)
+- [AWSAEAD struct now private](#awsaead-struct-now-private)
 - [Removed functions](#removed-functions)
   - [NewClient](#newclient)
   - [NewClientWithKMS](#newclientwithkms)
@@ -118,6 +119,11 @@ ciphertext, err := aead.EncryptWithContext(ctx, plaintext, associatedData)
 This is equivalent to calling `NewClientWithOptions` followed by `GetAEAD` and
 a type assertion, but avoids the assertion by returning `tink.AEADWithContext`
 directly.
+
+## AWSAEAD struct now private
+
+Instances can still be created via the constructor functions:
+`NewClientWithOptions` or `NewAEADWithContext`.
 
 ## Removed functions
 

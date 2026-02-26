@@ -27,14 +27,14 @@ import (
 )
 
 var (
-	_ tink.AEAD            = (*AWSAEAD)(nil)
-	_ tink.AEADWithContext = (*AWSAEAD)(nil)
+	_ tink.AEAD            = (*awsAEAD)(nil)
+	_ tink.AEADWithContext = (*awsAEAD)(nil)
 )
 
-// AWSAEAD is an implementation of the AEAD interface which performs
+// awsAEAD is an implementation of the AEAD interface which performs
 // cryptographic operations remotely via the AWS KMS service using a specific
 // key ID.
-type AWSAEAD struct {
+type awsAEAD struct {
 	keyID                 string
 	kms                   KMSAPI
 	encryptionContextName EncryptionContextName
@@ -47,8 +47,8 @@ type AWSAEAD struct {
 //	arn:<partition>:kms:<region>:[<path>]
 //
 // See http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html.
-func newAWSAEAD(keyID string, kms KMSAPI, name EncryptionContextName) *AWSAEAD {
-	return &AWSAEAD{
+func newAWSAEAD(keyID string, kms KMSAPI, name EncryptionContextName) *awsAEAD {
+	return &awsAEAD{
 		keyID:                 keyID,
 		kms:                   kms,
 		encryptionContextName: name,
@@ -57,21 +57,21 @@ func newAWSAEAD(keyID string, kms KMSAPI, name EncryptionContextName) *AWSAEAD {
 
 // Encrypt encrypts the plaintext with associatedData.
 //
-// It delegates to [AWSAEAD.EncryptWithContext] with [context.Background].
-func (a *AWSAEAD) Encrypt(plaintext, associatedData []byte) ([]byte, error) {
+// It delegates to [awsAEAD.EncryptWithContext] with [context.Background].
+func (a *awsAEAD) Encrypt(plaintext, associatedData []byte) ([]byte, error) {
 	return a.EncryptWithContext(context.Background(), plaintext, associatedData)
 }
 
 // Decrypt decrypts the ciphertext and verifies the associated data.
 //
-// It delegates to [AWSAEAD.DecryptWithContext] with [context.Background].
-func (a *AWSAEAD) Decrypt(ciphertext, associatedData []byte) ([]byte, error) {
+// It delegates to [awsAEAD.DecryptWithContext] with [context.Background].
+func (a *awsAEAD) Decrypt(ciphertext, associatedData []byte) ([]byte, error) {
 	return a.DecryptWithContext(context.Background(), ciphertext, associatedData)
 }
 
 // EncryptWithContext encrypts the plaintext with associatedData, passing ctx
 // to the underlying AWS KMS API call.
-func (a *AWSAEAD) EncryptWithContext(ctx context.Context, plaintext, associatedData []byte) ([]byte, error) {
+func (a *awsAEAD) EncryptWithContext(ctx context.Context, plaintext, associatedData []byte) ([]byte, error) {
 	req := &kms.EncryptInput{
 		KeyId:     aws.String(a.keyID),
 		Plaintext: plaintext,
@@ -89,7 +89,7 @@ func (a *AWSAEAD) EncryptWithContext(ctx context.Context, plaintext, associatedD
 
 // DecryptWithContext decrypts the ciphertext and verifies the associated data,
 // passing ctx to the underlying AWS KMS API call.
-func (a *AWSAEAD) DecryptWithContext(ctx context.Context, ciphertext, associatedData []byte) ([]byte, error) {
+func (a *awsAEAD) DecryptWithContext(ctx context.Context, ciphertext, associatedData []byte) ([]byte, error) {
 	req := &kms.DecryptInput{
 		KeyId:          aws.String(a.keyID),
 		CiphertextBlob: ciphertext,
