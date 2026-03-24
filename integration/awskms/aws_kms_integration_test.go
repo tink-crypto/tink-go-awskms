@@ -16,6 +16,7 @@ package awskms_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"testing"
@@ -71,6 +72,9 @@ func TestNewClientWithCredentialsGetAEADEncryptDecrypt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a.Encrypt(plaintext, associatedData) err = %v, want nil", err)
 	}
+
+	t.Logf("valid ciphertext for keyURI %s: %s", keyURI, hex.EncodeToString(ciphertext))
+
 	gotPlaintext, err := a.Decrypt(ciphertext, associatedData)
 	if err != nil {
 		t.Fatalf("a.Decrypt(ciphertext, associatedData) err = %v, want nil", err)
@@ -191,5 +195,34 @@ func TestKMSEnvelopeAEADEncryptAndDecrypt(t *testing.T) {
 				t.Errorf("a.Decrypt() = %q, want %q", gotPlaintext, plaintext)
 			}
 		}
+	}
+}
+
+func TestDecryptValidCiphertextForKeyURI(t *testing.T) {
+	// This is a valid ciphertext for keyURI that was generated with
+	// TestNewClientWithCredentialsGetAEADEncryptDecrypt.
+	// If the key changes, this ciphertext needs to be updated.
+	ciphertext, err := hex.DecodeString("01020200787a5511910e44ea9520df697fb6150f6261b59cee44cc846915252c083f03aad00168fe1a9ca1a6af5d571c1aa6e0afcba000000067306506092a864886f70d010706a0583056020100305106092a864886f70d010701301e060960864801650304012e3011040cb085893bc4757850d73a68ca02011080241fcff6b61f510d20c236ee7292b626e35a22b615e57326911daafaa399525431748d3e24")
+	if err != nil {
+		t.Fatalf("hex.DecodeString() err = %v, want nil", err)
+	}
+	wantPlaintext := []byte("plaintext")
+	associatedData := []byte("associatedData")
+	credFilePath := testFilePath(t, credCSVFile)
+
+	client, err := awskms.NewClientWithOptions(keyURI, awskms.WithCredentialPath(credFilePath))
+	if err != nil {
+		t.Fatalf("error setting up AWS client: %v", err)
+	}
+	a, err := client.GetAEAD(keyURI)
+	if err != nil {
+		t.Fatalf("client.GetAEAD(keyURI) err = %v, want nil", err)
+	}
+	gotPlaintext, err := a.Decrypt(ciphertext, associatedData)
+	if err != nil {
+		t.Fatalf("a.Decrypt(ciphertext, associatedData) err = %v, want nil", err)
+	}
+	if !bytes.Equal(gotPlaintext, wantPlaintext) {
+		t.Errorf("a.Decrypt() = %q, want %q", gotPlaintext, wantPlaintext)
 	}
 }
