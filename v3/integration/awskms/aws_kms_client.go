@@ -58,7 +58,9 @@ type awsClient struct {
 
 // ClientOption is an interface for defining options that are passed to
 // [NewClientWithOptions].
-type ClientOption interface{ set(ctx context.Context, a *awsClient) error }
+type ClientOption interface {
+	set(ctx context.Context, a *awsClient) error
+}
 
 type option func(ctx context.Context, a *awsClient) error
 
@@ -154,14 +156,7 @@ func WithEncryptionContextName(name EncryptionContextName) ClientOption {
 	})
 }
 
-// NewClientWithOptions returns a [registry.KMSClient] which wraps an AWS KMS
-// client and will handle keys whose URIs start with uriPrefix.
-//
-// By default, the client will use default credentials.
-//
-// AEAD primitives produced by this client will use [AssociatedData] when
-// serializing associated data.
-func NewClientWithOptions(ctx context.Context, uriPrefix string, opts ...ClientOption) (registry.KMSClient, error) {
+func newAWSClient(ctx context.Context, uriPrefix string, opts ...ClientOption) (*awsClient, error) {
 	if !strings.HasPrefix(strings.ToLower(uriPrefix), awsPrefix) {
 		return nil, fmt.Errorf("uriPrefix must start with %q, but got %q", awsPrefix, uriPrefix)
 	}
@@ -190,6 +185,17 @@ func NewClientWithOptions(ctx context.Context, uriPrefix string, opts ...ClientO
 	}
 
 	return a, nil
+}
+
+// NewClientWithOptions returns a [registry.KMSClient] which wraps an AWS KMS
+// client and will handle keys whose URIs start with uriPrefix.
+//
+// By default, the client will use default credentials.
+//
+// AEAD primitives produced by this client will use [AssociatedData] when
+// serializing associated data.
+func NewClientWithOptions(ctx context.Context, uriPrefix string, opts ...ClientOption) (registry.KMSClient, error) {
+	return newAWSClient(ctx, uriPrefix, opts...)
 }
 
 // NewClient returns a KMSClient backed by AWS KMS using default credentials to

@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/tink-crypto/tink-go/v2/tink"
 )
 
 // awsAEAD is an implementation of the AEAD interface which performs
@@ -34,7 +35,16 @@ type awsAEAD struct {
 	encryptionContextName EncryptionContextName
 }
 
-// TODO(b/874536267): Implement NewAEADWithContext, that returns a tink.AEADWithContext.
+// NewAEADWithContext returns a new AEADWithContext instance. The opts are the same as those
+// passed to NewClientWithOptions.
+func NewAEADWithContext(ctx context.Context, keyID string, opts ...ClientOption) (tink.AEADWithContext, error) {
+	keyURI := awsPrefix + keyID
+	awsClient, err := newAWSClient(ctx, keyURI, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return newAWSAEAD(keyID, awsClient.kms, awsClient.encryptionContextName), nil
+}
 
 // newAWSAEAD returns a new awsAEAD instance.
 //
@@ -51,8 +61,8 @@ func newAWSAEAD(keyID string, kms KMSAPI, name EncryptionContextName) *awsAEAD {
 	}
 }
 
-// Encrypt encrypts the plaintext with associatedData.
-func (a *awsAEAD) Encrypt(plaintext, associatedData []byte) ([]byte, error) {
+// EncryptWithContext encrypts the plaintext with associatedData.
+func (a *awsAEAD) EncryptWithContext(ctx context.Context, plaintext, associatedData []byte) ([]byte, error) {
 	req := &kms.EncryptInput{
 		KeyId:     aws.String(a.keyID),
 		Plaintext: plaintext,
@@ -61,15 +71,19 @@ func (a *awsAEAD) Encrypt(plaintext, associatedData []byte) ([]byte, error) {
 		ad := hex.EncodeToString(associatedData)
 		req.EncryptionContext = map[string]string{a.encryptionContextName.String(): ad}
 	}
-	resp, err := a.kms.Encrypt(context.TODO(), req)
+	resp, err := a.kms.Encrypt(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	return resp.CiphertextBlob, nil
 }
 
-// Decrypt decrypts the ciphertext and verifies the associated data.
-func (a *awsAEAD) Decrypt(ciphertext, associatedData []byte) ([]byte, error) {
+func (a *awsAEAD) Encrypt(plaintext, associatedData []byte) ([]byte, error) {
+	return a.EncryptWithContext(context.TODO(), plaintext, associatedData)
+}
+
+// DecryptWithContext decrypts the ciphertext and verifies the associated data.
+func (a *awsAEAD) DecryptWithContext(ctx context.Context, ciphertext, associatedData []byte) ([]byte, error) {
 	req := &kms.DecryptInput{
 		KeyId:          aws.String(a.keyID),
 		CiphertextBlob: ciphertext,
@@ -78,9 +92,13 @@ func (a *awsAEAD) Decrypt(ciphertext, associatedData []byte) ([]byte, error) {
 		ad := hex.EncodeToString(associatedData)
 		req.EncryptionContext = map[string]string{a.encryptionContextName.String(): ad}
 	}
-	resp, err := a.kms.Decrypt(context.TODO(), req)
+	resp, err := a.kms.Decrypt(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	return resp.Plaintext, nil
+}
+
+func (a *awsAEAD) Decrypt(ciphertext, associatedData []byte) ([]byte, error) {
+	return a.DecryptWithContext(context.TODO(), ciphertext, associatedData)
 }

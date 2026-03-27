@@ -16,7 +16,9 @@ package awskms_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -32,6 +34,7 @@ import (
 const (
 	keyPrefix   = "aws-kms://arn:aws:kms:us-east-2:235739564943:"
 	keyAliasURI = "aws-kms://arn:aws:kms:us-east-2:235739564943:alias/unit-and-integration-testing"
+	keyID       = "arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
 	keyURI      = "aws-kms://arn:aws:kms:us-east-2:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f"
 	keyURI2     = "aws-kms://arn:aws:kms:us-east-2:235739564943:key/b3ca2efd-a8fb-47f2-b541-7e20f8c5cd11"
 )
@@ -87,6 +90,64 @@ func TestNewClientWithCredentialsGetAEADEncryptDecrypt(t *testing.T) {
 	_, err = a.Decrypt(ciphertext, invalidAssociatedData)
 	if err == nil {
 		t.Error("a.Decrypt(ciphertext, invalidAssociatedData) err = nil, want error")
+	}
+}
+
+func TestNewAEADWithContextEncryptDecrypt(t *testing.T) {
+	credFilePath := testFilePath(t, credCSVFile)
+	a, err := awskms.NewAEADWithContext(t.Context(), keyID, awskms.WithCredentialPath(credFilePath))
+	if err != nil {
+		t.Fatalf("awskms.NewAEADWithContext() err = %v", err)
+	}
+	plaintext := []byte("plaintext")
+	associatedData := []byte("associatedData")
+	ciphertext, err := a.EncryptWithContext(t.Context(), plaintext, associatedData)
+	if err != nil {
+		t.Fatalf("a.Encrypt(plaintext, associatedData) err = %v, want nil", err)
+	}
+
+	gotPlaintext, err := a.DecryptWithContext(t.Context(), ciphertext, associatedData)
+	if err != nil {
+		t.Fatalf("a.Decrypt(ciphertext, associatedData) err = %v, want nil", err)
+	}
+	if !bytes.Equal(gotPlaintext, plaintext) {
+		t.Errorf("a.Decrypt() = %q, want %q", gotPlaintext, plaintext)
+	}
+
+	invalidAssociatedData := []byte("invalidAssociatedData")
+	_, err = a.DecryptWithContext(t.Context(), ciphertext, invalidAssociatedData)
+	if err == nil {
+		t.Error("a.Decrypt(ciphertext, invalidAssociatedData) err = nil, want error")
+	}
+
+	// Check that the context is not ignored.
+	cancelledCtx, cancel := context.WithCancelCause(t.Context())
+	causeErr := errors.New("cause error message")
+	cancel(causeErr)
+	_, err = a.EncryptWithContext(cancelledCtx, plaintext, associatedData)
+	if err == nil {
+		t.Error("a.EncryptWithContext(cancelledCtx, plaintext, associatedData) err = nil, want error")
+	}
+	_, err = a.DecryptWithContext(cancelledCtx, ciphertext, associatedData)
+	if err == nil {
+		t.Error("a.DecryptWithContext(cancelledCtx, ciphertext, associatedData) err = nil, want error")
+	}
+
+	// Check that it is compatible with the AEAD returned by NewClientWithOptions.
+	client, err := awskms.NewClientWithOptions(t.Context(), keyURI, awskms.WithCredentialPath(credFilePath))
+	if err != nil {
+		t.Fatalf("error setting up AWS client: %v", err)
+	}
+	clientAEAD, err := client.GetAEAD(keyURI)
+	if err != nil {
+		t.Fatalf("client.GetAEAD(keyURI) err = %v, want nil", err)
+	}
+	gotPlaintextFromClient, err := clientAEAD.Decrypt(ciphertext, associatedData)
+	if err != nil {
+		t.Fatalf("a.Decrypt(ciphertext, associatedData) err = %v, want nil", err)
+	}
+	if !bytes.Equal(gotPlaintextFromClient, plaintext) {
+		t.Errorf("a.Decrypt() = %q, want %q", gotPlaintextFromClient, plaintext)
 	}
 }
 
