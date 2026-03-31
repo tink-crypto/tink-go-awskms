@@ -184,6 +184,19 @@ func TestEmptyAssociatedDataEncryptDecrypt(t *testing.T) {
 	}
 }
 
+func TestEncryptEmptyPlaintext_doesNotPanic(t *testing.T) {
+	credFilePath := testFilePath(t, credCSVFile)
+	associatedData := []byte("associatedData")
+	a, err := awskms.NewAEADWithContext(t.Context(), keyID, awskms.WithCredentialPath(credFilePath))
+	if err != nil {
+		t.Fatalf("awskms.NewAEADWithContext() err = %v", err)
+	}
+
+	// This may fail (it currently does fail), but it should not panic.
+	_, _ = a.EncryptWithContext(t.Context(), make([]byte, 0), associatedData)
+	_, _ = a.EncryptWithContext(t.Context(), nil, associatedData)
+}
+
 func TestKeyCommitment(t *testing.T) {
 	credFilePath := testFilePath(t, credCSVFile)
 	client, err := awskms.NewClientWithOptions(t.Context(), keyPrefix, awskms.WithCredentialPath(credFilePath))
