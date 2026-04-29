@@ -19,6 +19,8 @@ package awskms
 
 import (
 	"encoding/hex"
+	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/kms"
@@ -80,5 +82,21 @@ func (a *AWSAEAD) Decrypt(ciphertext, associatedData []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Verify the returned KeyId matches the configured one. If we don't do this,
+	// the possibility exists for the ciphertext to be replaced by one under a key
+	// we don't control/expect, but do have decrypt permissions on. The check is
+	// disabled if keyID is not in key ARN format, matching the behavior of the
+	// Java SDK (AwsKmsAead.java:92).
+	// See https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id.
+	if isKeyArnFormat(a.keyID) && resp.KeyId != nil && *resp.KeyId != a.keyID {
+		return nil, fmt.Errorf("decryption failed: wrong key id")
+	}
 	return resp.Plaintext, nil
+}
+
+// isKeyArnFormat reports whether keyID is in key ARN format
+// (arn:<partition>:kms:<region>:<account>:key/<key-id>).
+func isKeyArnFormat(keyID string) bool {
+	parts := strings.Split(keyID, ":")
+	return len(parts) == 6 && strings.HasPrefix(parts[5], "key/")
 }
